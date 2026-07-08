@@ -64,11 +64,7 @@ export default function EmployeeManager({ currentUser }: EmployeeManagerProps) {
 
   const handleToggleSector = (secName: string) => {
     if (selectedSectors.includes(secName)) {
-      if (selectedSectors.length > 1) {
-        setSelectedSectors(selectedSectors.filter(s => s !== secName));
-      } else {
-        showMsg('O funcionário deve pertencer a pelo menos um setor.', 'error');
-      }
+      setSelectedSectors(selectedSectors.filter(s => s !== secName));
     } else {
       setSelectedSectors([...selectedSectors, secName]);
     }
@@ -84,6 +80,10 @@ export default function EmployeeManager({ currentUser }: EmployeeManagerProps) {
       showMsg('A seleção de cargo/função é obrigatória.', 'error');
       return;
     }
+    if (selectedSectors.length === 0) {
+      showMsg('O funcionário deve pertencer a pelo menos um setor.', 'error');
+      return;
+    }
 
     const selectedRoleObj = availableRoles.find(r => r.id === roleId);
     const resolvedRoleName = selectedRoleObj ? selectedRoleObj.name : role;
@@ -93,7 +93,7 @@ export default function EmployeeManager({ currentUser }: EmployeeManagerProps) {
       name: name.trim().toUpperCase(),
       role: resolvedRoleName,
       roleId,
-      sector: selectedSectors[0] || SECTORS[0],
+      sector: selectedSectors[0],
       sectors: selectedSectors,
       registration: registration.trim(),
       isActive

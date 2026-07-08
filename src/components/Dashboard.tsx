@@ -49,6 +49,37 @@ function deduceDefaultShiftParams(now: Date = new Date()): { date: string; perio
   }
 }
 
+function getTzDate(year: number, month: number, day: number, hour: number, minute: number, timeZone: string): Date {
+  const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+  
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hourCycle: 'h23'
+  });
+  
+  const parts = formatter.formatToParts(utcDate);
+  const getVal = (type: string) => parseInt(parts.find(p => p.type === type)!.value, 10);
+  
+  const formattedYear = getVal('year');
+  const formattedMonth = getVal('month') - 1;
+  const formattedDay = getVal('day');
+  const formattedHour = getVal('hour');
+  const formattedMinute = getVal('minute');
+  
+  const targetUtc = Date.UTC(year, month, day, hour, minute, 0, 0);
+  const formattedUtc = Date.UTC(formattedYear, formattedMonth, formattedDay, formattedHour, formattedMinute, 0, 0);
+  
+  const diff = targetUtc - formattedUtc;
+  
+  return new Date(utcDate.getTime() + diff);
+}
+
 export default function Dashboard({ currentUser, initialShiftId, onClearInitialShiftId }: DashboardProps) {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -286,15 +317,24 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
 
   const isShiftOver = (shift: Shift): boolean => {
     try {
-      const shiftDate = new Date(`${shift.date}T00:00:00`);
-      let endHour = 19;
+      const [year, month, day] = shift.date.split('-').map(Number);
+      
+      let endHour = 18;
+      let endMinute = 55;
       let endDayOffset = 0;
+      
       if (shift.period === 'NOTURNO') {
-        endHour = 7;
+        endHour = 6;
+        endMinute = 55;
         endDayOffset = 1;
       }
-      const endShiftDate = new Date(shiftDate.getTime() + endDayOffset * 24 * 60 * 60 * 1000);
-      endShiftDate.setHours(endHour, 0, 0, 0);
+      
+      const targetDate = new Date(Date.UTC(year, month - 1, day + endDayOffset));
+      const targetYear = targetDate.getUTCFullYear();
+      const targetMonth = targetDate.getUTCMonth();
+      const targetDay = targetDate.getUTCDate();
+      
+      const endShiftDate = getTzDate(targetYear, targetMonth, targetDay, endHour, endMinute, 'America/Sao_Paulo');
       return new Date() > endShiftDate;
     } catch (e) {
       console.error('Error parsing shift over status:', e);

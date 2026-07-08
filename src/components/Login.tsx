@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Shield, Key, User as UserIcon, Lock, AlertTriangle, Activity } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { hashPassword, logAction } from '../utils';
+import { hashPassword, logAction, getFriendlyErrorMessage } from '../utils';
 import UpaLogo from './UpaLogo';
 
 interface LoginProps {
@@ -39,7 +39,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         const msg = errorData.message || 'Usuário ou senha incorretos.';
-        setError(errorData.code ? `${msg} [Código: ${errorData.code}]` : msg);
+        setError(getFriendlyErrorMessage(msg, errorData.code));
         return;
       }
 
@@ -50,7 +50,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       onLoginSuccess(loggedUser);
     } catch (err: any) {
       console.error(err);
-      setError('Erro ao se conectar com o servidor.');
+      setError(getFriendlyErrorMessage('Erro ao se conectar com o servidor.', 'ERR_NETWORK_FAILURE'));
     }
   };
 

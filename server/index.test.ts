@@ -344,5 +344,33 @@ describe('Checklist UPA API Endpoints', () => {
       assert.strictEqual(body.code, 'ERR_DUPLICATE_RECORD');
       assert.ok(body.message.includes('Não é permitido alocar o mesmo colaborador em mais de um setor no mesmo plantão, mesmo que ele possua cadastro multisetorial'));
     });
+
+    it('should block allocation if the shift has expired (past 18:55 BRT for DIURNO)', async () => {
+      const pastShiftDate = new Date('2020-01-01T00:00:00.000Z');
+
+      mockQueryResult = (queryText: string, params: any[]) => {
+        if (queryText.includes('FROM shifts')) {
+          return { rows: [{ id: 'shift_123', status: 'ABERTO', date: pastShiftDate, period: 'DIURNO', is_deleted: false, reopen_justification: null }] };
+        }
+        return { rows: [] };
+      };
+
+      const res = await fetch(`http://localhost:${port}/api/checklist-items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shiftId: 'shift_123',
+          employeeId: 'emp_1',
+          sector: 'NIR',
+          user: { id: 'admin_id', role: 'ADMIN', username: 'admin' }
+        })
+      });
+
+      const body = await res.json();
+
+      assert.strictEqual(res.status, 400);
+      assert.strictEqual(body.code, 'ERR_VALIDATION_FAILED');
+      assert.ok(body.message.includes('está fechado ou expirado'));
+    });
   });
 });

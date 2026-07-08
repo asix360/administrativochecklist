@@ -17,6 +17,44 @@ export class ApiError extends Error {
   }
 }
 
+// Function to translate/enrich error codes to user-friendly messages without technical jargon
+export function getFriendlyErrorMessage(message: string, code?: string): string {
+  if (code) {
+    switch (code) {
+      case 'ERR_NETWORK_FAILURE':
+        return 'Não foi possível se conectar ao servidor. Por favor, verifique sua conexão com a internet e se o sistema está online.';
+      case 'ERR_DUPLICATE_RECORD':
+        return 'Este registro já está cadastrado no sistema. Verifique se as informações fornecidas já existem.';
+      case 'ERR_INVALID_REFERENCE':
+        return 'O registro de referência selecionado não foi encontrado ou está desativado. Recarregue a página e tente novamente.';
+      case 'ERR_MISSING_REQUIRED_FIELD':
+        return 'Há campos obrigatórios que não foram preenchidos. Por favor, complete todas as informações.';
+      case 'ERR_DB_CONNECTION_FAILURE':
+        return 'Ocorreu uma falha temporária de comunicação com o banco de dados. Aguarde alguns instantes e tente novamente.';
+      case 'ERR_INTERNAL_SERVER':
+        return 'Ocorreu um erro interno no servidor ao processar a solicitação. Se o problema persistir, contate o administrador.';
+      case 'ERR_AUTH_FAILED':
+        return 'Usuário não encontrado ou senha incorreta. Verifique os dados informados.';
+      case 'ERR_FORBIDDEN':
+        return 'Você não possui permissão de acesso para realizar esta operação.';
+      case 'ERR_NOT_FOUND':
+        return 'O registro solicitado não foi encontrado no sistema.';
+      case 'ERR_VALIDATION_FAILED':
+        return message || 'As informações fornecidas não são válidas para prosseguir. Por favor, revise os dados informados.';
+    }
+  }
+
+  if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+    return 'Não foi possível se conectar ao servidor. Por favor, verifique sua conexão com a internet.';
+  }
+  if (message.includes('Internal Server Error')) {
+    return 'Ocorreu um problema temporário no servidor. Por favor, tente novamente em alguns instantes.';
+  }
+
+  // Remove any remaining technical brackets like "[Código: ...]"
+  return message.replace(/\s*\[Código:\s*[^\]]+\]/g, '');
+}
+
 export async function fetchApi(path: string, options: RequestInit = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -26,15 +64,15 @@ export async function fetchApi(path: string, options: RequestInit = {}) {
   try {
     res = await fetch(`${API_URL}${path}`, { ...options, headers });
   } catch (netErr: any) {
-    const msg = `Erro de conexão com o servidor. [Código: ERR_NETWORK_FAILURE]`;
-    throw new ApiError(msg, 'ERR_NETWORK_FAILURE');
+    const friendlyMsg = getFriendlyErrorMessage('Erro de conexão', 'ERR_NETWORK_FAILURE');
+    throw new ApiError(friendlyMsg, 'ERR_NETWORK_FAILURE');
   }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    const message = errorData.message || `Erro da API: ${res.statusText}`;
-    const formattedMsg = errorData.code ? `${message} [Código: ${errorData.code}]` : message;
-    throw new ApiError(formattedMsg, errorData.code);
+    const rawMessage = errorData.message || `Erro do servidor: ${res.statusText}`;
+    const friendlyMsg = getFriendlyErrorMessage(rawMessage, errorData.code);
+    throw new ApiError(friendlyMsg, errorData.code);
   }
   return res.json();
 }
