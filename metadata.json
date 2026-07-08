@@ -1,0 +1,6 @@
+{
+  "name": "Checklist de Plantão UPA",
+  "description": "Sistema para gerenciamento de escalas de plantão de funcionários de saúde, controle de pendências, controle de acessos (usuários/permissões), histórico de logs e exportação de relatórios em PDF automaticamente.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

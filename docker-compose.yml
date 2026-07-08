@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: upa_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_DB: upa_checklist
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d upa_checklist"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+    container_name: upa_backend
+    restart: always
+    ports:
+      - "3011:3001"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres_password@db:5432/upa_checklist
+      - PORT=3001
+      - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend.Dockerfile
+    container_name: upa_frontend
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3020:3000"
+    command: npm run dev
+    depends_on:
+      - backend
+    environment:
+      - VITE_PROXY_TARGET=http://backend:3001
+
+volumes:
+  postgres_data:
