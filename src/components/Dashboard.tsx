@@ -87,6 +87,7 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
   const [issues, setIssues] = useState<SectorPendingIssue[]>([]);
   const [search, setSearch] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
+  const [isHistoricalView, setIsHistoricalView] = useState(false);
   
   // Create Shift States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -139,17 +140,20 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
           const found = storedShifts.find((s) => s.id === initialShiftId);
           if (found) {
             setSelectedShift(found);
+            setIsHistoricalView(true);
             if (onClearInitialShiftId) {
               onClearInitialShiftId();
             }
             return;
           }
         }
+        
+        setIsHistoricalView(false);
         const openShift = storedShifts.find((s) => s.status === 'ABERTO');
-        if (openShift) {
+        if (openShift && (!isShiftOver(openShift) || openShift.reopenJustification)) {
           setSelectedShift(openShift);
         } else {
-          // If no open shift, check if the most recent active shift is from today
+          // If no open shift, check if the most recent active shift is from today and not expired
           const mostRecent = storedShifts[0];
           const today = new Date();
           const year = today.getFullYear();
@@ -157,13 +161,14 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
           const day = String(today.getDate()).padStart(2, '0');
           const todayStr = `${year}-${month}-${day}`;
           
-          if (mostRecent && mostRecent.date === todayStr) {
+          if (mostRecent && mostRecent.date === todayStr && !isShiftOver(mostRecent)) {
             setSelectedShift(mostRecent);
           } else {
             setSelectedShift(null);
           }
         }
       } else {
+        setIsHistoricalView(false);
         setSelectedShift(null);
       }
     } catch (err: any) {
@@ -177,6 +182,7 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
       const found = shifts.find((s) => s.id === initialShiftId);
       if (found) {
         setSelectedShift(found);
+        setIsHistoricalView(true);
         if (onClearInitialShiftId) {
           onClearInitialShiftId();
         }
@@ -193,6 +199,23 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
       setIssues([]);
     }
   }, [selectedShift]);
+
+  useEffect(() => {
+    if (!selectedShift || isHistoricalView) return;
+    
+    const checkExpiryInterval = setInterval(() => {
+      if (
+        selectedShift.status === 'ABERTO' &&
+        isShiftOver(selectedShift) &&
+        !selectedShift.reopenJustification
+      ) {
+        setSelectedShift(null);
+        showMsg('O plantão atual expirou e a página inicial foi redefinida.', 'info');
+      }
+    }, 10000);
+    
+    return () => clearInterval(checkExpiryInterval);
+  }, [selectedShift, isHistoricalView]);
 
   const loadChecklistItems = async (shiftId: string) => {
     try {
@@ -580,11 +603,15 @@ export default function Dashboard({ currentUser, initialShiftId, onClearInitialS
         </div>
       )}
 
-      {/* Floating Success Toast in the bottom-right */}
-      {msg.text && msg.type === 'success' && (
-        <div className="fixed bottom-6 right-6 bg-white border border-emerald-100 rounded-2xl p-4 shadow-xl z-50 flex items-center space-x-3 max-w-sm animate-slide-up">
-          <div className="p-1.5 bg-emerald-500 text-white rounded-full shrink-0">
-            <Check className="h-3.5 w-3.5" />
+      {/* Floating Success/Info Toast in the bottom-right */}
+      {msg.text && (msg.type === 'success' || msg.type === 'info') && (
+        <div className={`fixed bottom-6 right-6 bg-white border rounded-2xl p-4 shadow-xl z-50 flex items-center space-x-3 max-w-sm animate-slide-up ${
+          msg.type === 'success' ? 'border-emerald-100' : 'border-blue-100'
+        }`}>
+          <div className={`p-1.5 text-white rounded-full shrink-0 ${
+            msg.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
+          }`}>
+            {msg.type === 'success' ? <Check className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-700 leading-tight">{msg.text}</p>
